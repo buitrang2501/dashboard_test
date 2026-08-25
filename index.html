@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Facolos — Báo Cáo Kinh Doanh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+/* CSS CORE TỪ EXECUTIVE DASHBOARD CŨ */
+:root {
+  --brand:#0E3D34; --brand-dark:#071F1A; --brand-surface:#123B2E;
+  --gold:#C8A161; --gold-bright:#E5C17C; --gold-dark:#9E7B3B;
+  --gold-gradient: linear-gradient(135deg, #E5C17C 0%, #C8A161 50%, #A68144 100%);
+  --paper:#F4F1EA; --paper-card:#FFFFFF; --ink:#2F3A36; --muted:#5C6B66;
+  --line:#DCD5C9; --up:#0E3D34; --up-bg:#E2EDE9; --down:#9A2C2C; --down-bg:#FDF2F2; 
+  --sidebar-w:264px;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--paper); color:var(--ink); font-family:'Inter', sans-serif; line-height:1.55; -webkit-font-smoothing:antialiased; }
+h1, h2, h3 { font-family:'Playfair Display', serif; }
+.mono { font-family:'JetBrains Mono', monospace; }
+
+/* LOADING OVERLAY */
+#loadingOverlay { position:fixed; inset:0; background:var(--brand); display:flex; align-items:center; justify-content:center; z-index:9999; color:var(--gold-bright); flex-direction:column; }
+.spinner { border: 4px solid rgba(229, 193, 124, 0.3); border-top: 4px solid var(--gold-bright); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* TOPBAR & CONTROLBAR */
+.topbar { background:linear-gradient(135deg, #071F1A 0%, #0E3D34 60%, #123B2E 100%); color:#FFFFFF; padding:14px clamp(18px,3vw,36px); display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid var(--gold); margin-left: var(--sidebar-w); }
+.topbar-title { font-family:'Playfair Display', serif; font-weight:700; font-size:22px; color:var(--gold-bright); }
+.controlbar { background:#0A2C25; padding:10px 36px; display:flex; gap:14px; align-items:center; border-bottom:1px solid rgba(200, 161, 97, 0.35); margin-left: var(--sidebar-w); position: sticky; top: 0; z-index: 100; }
+.filter-item { display:flex; align-items:center; gap:8px; }
+.filter-item label { font-size:12.5px; color:var(--gold-bright); font-weight:700; }
+.filter-item select { background:#071F1A; color:#FFFFFF; border:1px solid var(--gold); padding:7px 12px; font-size:13px; border-radius:6px; outline:none; font-weight:700; cursor:pointer; }
+.btn-reset { margin-left:auto; background:var(--gold-gradient); color:#071F1A; border:none; padding:7px 16px; font-weight:700; border-radius:6px; cursor:pointer; }
+
+/* SIDEBAR */
+#sidebarDrawer { position:fixed; top:0; left:0; bottom:0; width:var(--sidebar-w); background:linear-gradient(180deg, #071F1A 0%, #0E3D34 55%, #123B2E 100%); border-right:2px solid var(--gold); z-index:300; display:flex; flex-direction:column; }
+.sidebar-brand { padding:20px; font-family:'Playfair Display',serif; font-weight:700; font-size:24px; color:var(--gold-bright); text-align:center; border-bottom:1px solid rgba(200,161,97,0.25); }
+.sidebar-nav { padding:20px 10px; flex:1; }
+.nav-link { display:flex; align-items:center; padding:12px 14px; color:#B9C7C1; font-weight:600; text-decoration:none; border-radius:8px; margin-bottom:5px; cursor:pointer; }
+.nav-link.active { background:rgba(200,161,97,0.16); color:#FFFFFF; border-left:3px solid var(--gold); font-weight:700; }
+
+/* MAIN CONTENT */
+main { margin-left: var(--sidebar-w); padding: 24px 36px 40px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.page-title h1 { font-size:28px; color:var(--brand); margin-bottom:8px; }
+.page-title p { color:var(--muted); font-size:14px; margin-bottom:24px; }
+
+/* KPI CARDS */
+.scorecards { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px; }
+.card { background:var(--paper-card); padding:16px; border:1px solid var(--line); border-top:3px solid var(--gold); border-radius:8px; box-shadow:0 4px 10px rgba(14,61,52,0.04); }
+.card .kpi-label { font-size:11px; color:var(--brand); font-weight:800; text-transform:uppercase; margin-bottom:6px; }
+.card .kpi-actual { font-size:24px; font-weight:800; color:var(--brand); }
+.card .ticker { font-size:12px; font-weight:700; padding:2px 6px; border-radius:4px; display:inline-block; margin-top:8px; }
+.ticker.up { color:var(--up); background:var(--up-bg); }
+.ticker.down { color:var(--down); background:var(--down-bg); }
+
+/* PROGRESS BAR */
+.progress-wrap { margin-top: 10px; }
+.progress-track { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; position: relative; }
+.progress-fill { height: 100%; background: var(--gold-gradient); border-radius: 3px; }
+.progress-text { font-size: 11px; color: var(--muted); margin-top: 4px; display: flex; justify-content: space-between; }
+
+/* CHARTS & TABLES */
+.chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-bottom:24px; }
+.chart-card { background:var(--paper-card); border:1px solid var(--line); border-top:3px solid var(--brand); padding:20px; border-radius:8px; }
+.chart-card h3 { font-size:16px; color:var(--brand); margin-bottom:15px; }
+
+.table-wrap { width:100%; overflow-x:auto; background:var(--paper-card); border-radius:8px; border:1px solid var(--line); margin-bottom:24px; }
+table.data { width:100%; border-collapse:collapse; }
+table.data th { text-align:left; font-size:12px; text-transform:uppercase; color:#fff; background:var(--brand); padding:12px 16px; }
+table.data td { padding:12px 16px; border-bottom:1px solid var(--line); font-size:13.5px; }
+table.data th.num, table.data td.num { text-align:right; }
+table.data tr:hover { background:var(--gold-light, #FBF8F2); }
+
+/* RECONCILIATION BOX */
+.recon-box { background: #fff; padding: 24px; border-radius: 8px; border-left: 4px solid var(--brand); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.recon-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+.recon-row:last-child { border-bottom: none; font-weight: 700; font-size: 16px; color: var(--down); }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <h2 style="font-family:'Playfair Display', serif;">Đang đồng bộ dữ liệu...</h2>
+  <p style="font-size:14px; margin-top:8px;">Kết nối Google Sheets CSV</p>
+</div>
+
+<!-- SIDEBAR -->
+<nav id="sidebarDrawer">
+  <div class="sidebar-brand">FACOLOS</div>
+  <div class="sidebar-nav">
+    <a class="nav-link active" onclick="switchTab('com', this)">💰 1. Doanh số COM</a>
+    <a class="nav-link" onclick="switchTab('revenue', this)">📦 2. Doanh thu & Sản lượng</a>
+    <a class="nav-link" onclick="switchTab('recon', this)">⚖️ 3. Đối chiếu Dữ liệu</a>
+  </div>
+</nav>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-title">Báo Cáo Hoạt Động Kinh Doanh</div>
+  <div style="font-size:12px;">Cập nhật tự động từ Google Sheets</div>
+</div>
+
+<!-- CONTROLBAR (FILTERS) -->
+<div class="controlbar">
+  <div class="filter-item">
+    <label>Kỳ báo cáo:</label>
+    <select id="filterMonth" onchange="renderDashboard()"><option value="ALL">Tất cả thời gian</option></select>
+  </div>
+  <div class="filter-item">
+    <label>Kênh bán:</label>
+    <select id="filterChannel" onchange="renderDashboard()"><option value="ALL">Tất cả kênh</option></select>
+  </div>
+  <div class="filter-item">
+    <label>Ngành hàng:</label>
+    <select id="filterCategory" onchange="renderDashboard()"><option value="ALL">Tất cả ngành hàng</option></select>
+  </div>
+  <button class="btn-reset" onclick="resetFilters()">Reset Bộ Lọc</button>
+</div>
+
+<!-- MAIN CONTENT -->
+<main>
+  
+  <!-- TAB 1: DOANH SỐ COM -->
+  <section class="tab-panel active" id="panel-com">
+    <div class="page-title">
+      <h1>Doanh số tính COM (Dòng tiền)</h1>
+      <p>Báo cáo dòng tiền thực tế phát sinh (thanh toán, cọc) đủ điều kiện tính COM.</p>
+    </div>
+
+    <div class="scorecards">
+      <div class="card">
+        <div class="kpi-label">Doanh số COM</div>
+        <div class="kpi-actual" id="kpiComSales">0 đ</div>
+        <div class="progress-wrap">
+          <div class="progress-track"><div class="progress-fill" id="kpiComBar" style="width:0%"></div></div>
+          <div class="progress-text"><span id="kpiComPct">0%</span><span>Mục tiêu: <span id="kpiComTarget">0</span></span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="kpi-label">Số lượng Đơn hàng</div>
+        <div class="kpi-actual" id="kpiComOrders">0</div>
+        <div class="ticker up" id="kpiComOrdersTrend">+0%</div>
+      </div>
+      <div class="card">
+        <div class="kpi-label">AOV (Giá trị ĐH Bình quân)</div>
+        <div class="kpi-actual" id="kpiComAov">0 đ</div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Xu hướng dòng tiền theo thời gian</h3>
+        <div style="height:250px;"><canvas id="comTrendChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Hiệu quả dòng tiền theo Kênh</h3>
+        <div class="table-wrap" style="max-height:250px; overflow-y:auto; margin-bottom:0;">
+          <table class="data">
+            <thead><tr><th>Kênh bán</th><th class="num">SL Đơn</th><th class="num">Doanh số COM</th></tr></thead>
+            <tbody id="comChannelTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 2: DOANH THU & SẢN LƯỢNG -->
+  <section class="tab-panel" id="panel-revenue">
+    <div class="page-title">
+      <h1>Doanh thu & Sản lượng bán (Sản phẩm)</h1>
+      <p>Phân tích giá trị hàng hóa và số lượng bán ra thực tế độc lập với dòng tiền.</p>
+    </div>
+
+    <div class="scorecards">
+      <div class="card"><div class="kpi-label">Tổng Doanh Thu</div><div class="kpi-actual" id="kpiRevTotal">0 đ</div></div>
+      <div class="card"><div class="kpi-label">Tổng Sản Lượng Bán</div><div class="kpi-actual" id="kpiRevQty">0</div></div>
+      <div class="card"><div class="kpi-label">Số SKU Phát Sinh Bán</div><div class="kpi-actual" id="kpiRevSkus">0</div></div>
+      <div class="card"><div class="kpi-label">Doanh thu / SKU (Bình quân)</div><div class="kpi-actual" id="kpiRevAvg">0 đ</div></div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Cơ cấu Doanh thu theo Ngành hàng</h3>
+        <div style="height:250px;"><canvas id="revCategoryChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Cơ cấu Sản lượng theo Dòng SP (Line)</h3>
+        <div style="height:250px;"><canvas id="revLineChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-card" style="margin-top:20px;">
+      <h3>Top Sản Phẩm Theo Doanh Thu</h3>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Hạng</th><th>SKU</th><th>Tên sản phẩm</th><th>Ngành hàng</th><th>Line</th><th class="num">SL Bán</th><th class="num">Doanh thu</th></tr></thead>
+          <tbody id="revTopTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 3: ĐỐI CHIẾU -->
+  <section class="tab-panel" id="panel-recon">
+    <div class="page-title">
+      <h1>Đối chiếu Doanh số COM & Doanh thu</h1>
+      <p>Phân tích nguyên nhân chênh lệch giữa Dòng tiền nhận được và Hàng hóa bán ra.</p>
+    </div>
+
+    <div class="chart-grid" style="grid-template-columns: 1fr;">
+      <div class="recon-box">
+        <div class="recon-row">
+          <span style="color:var(--brand); font-weight:600;">[A] Tổng Doanh số COM (Dòng tiền thực nhận)</span>
+          <span class="mono" id="rcCom" style="font-weight:700; font-size:18px;">0 đ</span>
+        </div>
+        <div class="recon-row">
+          <span style="color:var(--brand); font-weight:600;">[B] Tổng Doanh thu (Hàng hóa xuất bán)</span>
+          <span class="mono" id="rcRev" style="font-weight:700; font-size:18px;">0 đ</span>
+        </div>
+        <div class="recon-row">
+          <span>Chênh lệch [A] - [B]</span>
+          <span class="mono" id="rcDiff">0 đ</span>
+        </div>
+        
+        <div style="margin-top:20px; padding-top:20px; border-top:2px solid var(--line);">
+          <h3 style="font-size:14px; margin-bottom:12px; color:var(--muted);">Giải thích chênh lệch có thể đến từ:</h3>
+          <div class="recon-row" style="font-size:13px; font-weight:normal; border:none; padding:4px 0;">
+            <span>(+) Tiền cọc/Thanh toán trước cho các đơn chưa ghi nhận doanh thu:</span>
+            <span class="mono" id="rcDeposit">0 đ</span>
+          </div>
+          <div class="recon-row" style="font-size:13px; font-weight:normal; border:none; padding:4px 0;">
+            <span>(-) Đơn hàng có phát sinh doanh thu nhưng chưa thu (đủ) tiền:</span>
+            <span class="mono" id="rcUnpaid">0 đ</span>
+          </div>
+          <div class="recon-row" style="font-size:13px; font-weight:normal; border:none; padding:4px 0; color:var(--muted); font-style:italic;">
+            <span>(*) Các khoản hoàn/hủy, sai lệch thời điểm ghi nhận khác...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* =========================================
+   1. CẤU HÌNH & DATA MODEL
+   ========================================= */
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQoMahebG0_l7x6Xgrm3S6HH-gqfdY_jjGo2i6JRg0sXhjJSl6Qzr5yUusFH7C4KMYfz3nb6uD99qaY/pub?output=csv";
+const TARGET_KPI = 500000000; // Mock KPI 500 Triệu
+
+let AppData = {
+  orders: new Map(), // { orderId: { date, channel, status, totalValue } }
+  payments: [],      // [{ paymentId, orderId, date, amount, isDeposit, comEligible }]
+  orderDetails: [],  // [{ orderId, sku, qty, rev, status }]
+  products: new Map()// { sku: { name, category, line } }
+};
+
+let Charts = {};
+
+/* =========================================
+   2. TIỆN ÍCH (UTILITIES)
+   ========================================= */
+const fmtMoney = (v) => new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' đ';
+const fmtNum = (v) => new Intl.NumberFormat('vi-VN').format(v);
+const cleanStr = (s) => String(s || '').trim();
+const toNum = (v) => parseFloat(String(v).replace(/,/g, '')) || 0;
+
+function switchTab(tabId, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  document.getElementById('panel-' + tabId).classList.add('active');
+  el.classList.add('active');
+}
+
+function resetFilters() {
+  document.getElementById('filterMonth').value = 'ALL';
+  document.getElementById('filterChannel').value = 'ALL';
+  document.getElementById('filterCategory').value = 'ALL';
+  renderDashboard();
+}
+
+/* =========================================
+   3. TẢI VÀ XỬ LÝ DỮ LIỆU TỪ GOOGLE SHEETS
+   ========================================= */
+async function fetchAndMapData() {
+  try {
+    const res = await fetch(CSV_URL);
+    const dataBuffer = await res.arrayBuffer();
+    const wb = XLSX.read(dataBuffer, { type: 'array' });
+    const rawData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+
+    // Các set để đổ dropdown
+    let months = new Set(), channels = new Set(), categories = new Set();
+
+    rawData.forEach((row, i) => {
+      // Mapping theo phỏng đoán tên cột tiếng Việt thông dụng
+      let oId = cleanStr(row['Mã Đơn'] || row['Order ID'] || row['OrderID'] || `ORD_${i}`);
+      let date = cleanStr(row['Ngày'] || row['Date'] || row['Ngày tạo'] || '');
+      let channel = cleanStr(row['Kênh'] || row['Channel'] || row['Kênh bán'] || 'Khác');
+      let status = cleanStr(row['Trạng thái'] || row['Status'] || 'Hoàn thành');
+      
+      let sku = cleanStr(row['SKU'] || row['Mã SP'] || `SKU_${i}`);
+      let pName = cleanStr(row['Tên SP'] || row['Product Name'] || sku);
+      let cat = cleanStr(row['Ngành hàng'] || row['Category'] || 'Chưa phân loại');
+      let line = cleanStr(row['Line'] || row['Dòng SP'] || 'Chung');
+      
+      let qty = toNum(row['Số lượng'] || row['Qty'] || row['Sản lượng']);
+      let rev = toNum(row['Doanh thu'] || row['Thành tiền'] || row['Revenue']);
+      
+      let payment = toNum(row['Dòng tiền'] || row['Thực thu'] || row['Thanh toán'] || row['Payment']);
+      let isDeposit = cleanStr(row['Loại thanh toán'] || row['Ghi chú']).toLowerCase().includes('cọc');
+      
+      // COM logic: Bỏ qua đơn Hủy
+      let isCancelled = status.toLowerCase().includes('hủy') || status.toLowerCase().includes('cancel');
+
+      // Tạo tháng (YYYY-MM)
+      let monthKey = '';
+      if(date.length > 5) {
+        // Giả sử định dạng DD/MM/YYYY hoặc YYYY-MM-DD
+        let parts = date.includes('/') ? date.split('/') : date.split('-');
+        if(parts.length >= 2) {
+          monthKey = date.includes('/') ? `${parts[2]}-${parts[1].padStart(2,'0')}` : `${parts[0]}-${parts[1].padStart(2,'0')}`;
+          months.add(monthKey);
+        }
+      }
+
+      channels.add(channel);
+      categories.add(cat);
+
+      // 1. Order
+      if (!AppData.orders.has(oId)) {
+        AppData.orders.set(oId, { date: monthKey || date, channel, status });
+      }
+
+      // 2. Product
+      if (!AppData.products.has(sku)) {
+        AppData.products.set(sku, { name: pName, category: cat, line: line });
+      }
+
+      // 3. Order Details (Doanh thu)
+      if ((qty > 0 || rev > 0) && !isCancelled) {
+        AppData.orderDetails.push({ orderId: oId, sku, qty, rev, status });
+      }
+
+      // 4. Payment (COM)
+      if (payment > 0) {
+        AppData.payments.push({
+          paymentId: `${oId}_P${i}`, orderId: oId, date: monthKey || date,
+          amount: payment, isDeposit: isDeposit, comEligible: !isCancelled
+        });
+      }
+    });
+
+    // Cập nhật Dropdown
+    populateSelect('filterMonth', Array.from(months).sort());
+    populateSelect('filterChannel', Array.from(channels).sort());
+    populateSelect('filterCategory', Array.from(categories).sort());
+
+    document.getElementById('loadingOverlay').style.display = 'none';
+    renderDashboard();
+
+  } catch (err) {
+    console.error("Lỗi tải dữ liệu: ", err);
+    document.getElementById('loadingOverlay').innerHTML = `<h2 style="color:red;">Lỗi kết nối dữ liệu!</h2><p>Vui lòng kiểm tra lại Link CSV Google Sheets.</p>`;
+  }
+}
+
+function populateSelect(id, arr) {
+  const sel = document.getElementById(id);
+  arr.forEach(val => sel.insertAdjacentHTML('beforeend', `<option value="${val}">${val}</option>`));
+}
+
+/* =========================================
+   4. RENDER DASHBOARD (CORE LOGIC)
+   ========================================= */
+function renderDashboard() {
+  const fMonth = document.getElementById('filterMonth').value;
+  const fChan = document.getElementById('filterChannel').value;
+  const fCat = document.getElementById('filterCategory').value;
+
+  // Lọc Orders
+  const validOrderIds = new Set();
+  AppData.orders.forEach((info, oId) => {
+    let passMonth = (fMonth === 'ALL' || info.date === fMonth);
+    let passChan = (fChan === 'ALL' || info.channel === fChan);
+    if (passMonth && passChan) validOrderIds.add(oId);
+  });
+
+  /* ---------------------------------------------------------
+     PHẦN 1: TÍNH DOANH SỐ COM (Từ AppData.payments)
+  --------------------------------------------------------- */
+  let comPayments = AppData.payments.filter(p => validOrderIds.has(p.orderId) && p.comEligible);
+  let comTotal = 0, depositTotal = 0;
+  let comByChan = {}, comTrend = {};
+  let comOrderSet = new Set();
+
+  comPayments.forEach(p => {
+    comTotal += p.amount;
+    comOrderSet.add(p.orderId);
+    if(p.isDeposit) depositTotal += p.amount;
+
+    let chan = AppData.orders.get(p.orderId).channel;
+    comByChan[chan] = (comByChan[chan] || 0) + p.amount;
+
+    let timeKey = p.date;
+    comTrend[timeKey] = (comTrend[timeKey] || 0) + p.amount;
+  });
+
+  let comOrdersCount = comOrderSet.size;
+  let aov = comOrdersCount > 0 ? comTotal / comOrdersCount : 0;
+
+  document.getElementById('kpiComSales').innerText = fmtMoney(comTotal);
+  document.getElementById('kpiComOrders').innerText = fmtNum(comOrdersCount);
+  document.getElementById('kpiComAov').innerText = fmtMoney(aov);
+  
+  let target = (fMonth === 'ALL') ? TARGET_KPI * 12 : TARGET_KPI; // Đơn giản hóa KPI
+  let pct = Math.min((comTotal / target) * 100, 100);
+  document.getElementById('kpiComBar').style.width = pct + '%';
+  document.getElementById('kpiComPct').innerText = pct.toFixed(1) + '%';
+  document.getElementById('kpiComTarget').innerText = fmtMoney(target);
+
+  // Table Channel COM
+  let tCh = document.getElementById('comChannelTable');
+  tCh.innerHTML = '';
+  Object.entries(comByChan).sort((a,b)=>b[1]-a[1]).forEach(([c, val]) => {
+    let sl = new Set(comPayments.filter(p => AppData.orders.get(p.orderId).channel === c).map(p=>p.orderId)).size;
+    tCh.insertAdjacentHTML('beforeend', `<tr><td>${c}</td><td class="num mono">${fmtNum(sl)}</td><td class="num mono">${fmtMoney(val)}</td></tr>`);
+  });
+
+  renderBarChart('comTrendChart', Object.keys(comTrend).sort(), Object.keys(comTrend).sort().map(k=>comTrend[k]), 'Doanh số COM');
+
+
+  /* ---------------------------------------------------------
+     PHẦN 2: TÍNH DOANH THU & SẢN LƯỢNG (Từ AppData.orderDetails)
+  --------------------------------------------------------- */
+  let revDetails = AppData.orderDetails.filter(d => {
+    if(!validOrderIds.has(d.orderId)) return false;
+    let cat = AppData.products.get(d.sku).category;
+    if(fCat !== 'ALL' && cat !== fCat) return false;
+    return true;
+  });
+
+  let revTotal = 0, qtyTotal = 0;
+  let skuSet = new Set();
+  let revByCat = {}, revByLine = {}, skuStats = {};
+
+  revDetails.forEach(d => {
+    revTotal += d.rev;
+    qtyTotal += d.qty;
+    skuSet.add(d.sku);
+
+    let pInfo = AppData.products.get(d.sku);
+    revByCat[pInfo.category] = (revByCat[pInfo.category] || 0) + d.rev;
+    revByLine[pInfo.line] = (revByLine[pInfo.line] || 0) + d.qty; // Lưu ý: Line tính theo sản lượng
+
+    if(!skuStats[d.sku]) skuStats[d.sku] = { qty:0, rev:0, pInfo };
+    skuStats[d.sku].qty += d.qty;
+    skuStats[d.sku].rev += d.rev;
+  });
+
+  document.getElementById('kpiRevTotal').innerText = fmtMoney(revTotal);
+  document.getElementById('kpiRevQty').innerText = fmtNum(qtyTotal);
+  document.getElementById('kpiRevSkus').innerText = fmtNum(skuSet.size);
+  document.getElementById('kpiRevAvg').innerText = skuSet.size > 0 ? fmtMoney(revTotal / skuSet.size) : '0 đ';
+
+  // Table Top SKU
+  let tSku = document.getElementById('revTopTable');
+  tSku.innerHTML = '';
+  let sortedSkus = Object.entries(skuStats).sort((a,b)=>b[1].rev - a[1].rev).slice(0,10);
+  sortedSkus.forEach(([sku, d], idx) => {
+    tSku.insertAdjacentHTML('beforeend', `<tr>
+      <td>#${idx+1}</td><td class="mono">${sku}</td><td>${d.pInfo.name}</td>
+      <td>${d.pInfo.category}</td><td>${d.pInfo.line}</td>
+      <td class="num mono">${fmtNum(d.qty)}</td><td class="num mono">${fmtMoney(d.rev)}</td>
+    </tr>`);
+  });
+
+  renderBarChart('revCategoryChart', Object.keys(revByCat), Object.values(revByCat), 'Doanh thu');
+  renderBarChart('revLineChart', Object.keys(revByLine), Object.values(revByLine), 'Sản lượng');
+
+
+  /* ---------------------------------------------------------
+     PHẦN 3: ĐỐI CHIẾU
+  --------------------------------------------------------- */
+  document.getElementById('rcCom').innerText = fmtMoney(comTotal);
+  document.getElementById('rcRev').innerText = fmtMoney(revTotal);
+  let diff = comTotal - revTotal;
+  let elDiff = document.getElementById('rcDiff');
+  elDiff.innerText = fmtMoney(diff);
+  elDiff.style.color = diff < 0 ? 'var(--down)' : 'var(--brand)';
+
+  // Logic ước tính đơn giản (nếu Dòng tiền < Doanh thu => Có khoản chưa thu)
+  let unpaid = Math.max(0, revTotal - comTotal + depositTotal);
+  document.getElementById('rcDeposit').innerText = fmtMoney(depositTotal);
+  document.getElementById('rcUnpaid').innerText = fmtMoney(unpaid);
+}
+
+function renderBarChart(canvasId, labels, data, labelName) {
+  if (Charts[canvasId]) Charts[canvasId].destroy();
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  Charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{ label: labelName, data: data, backgroundColor: '#0E3D34', borderRadius: 4 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+}
+
+// Chạy khởi tạo
+fetchAndMapData();
+
+</script>
+</body>
+</html>
