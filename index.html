@@ -277,11 +277,8 @@ table.data tr:last-child td { border-bottom: none; }
 /* =========================================
    1. CẤU HÌNH & DATA MODEL
    ========================================= */
-// URL Gốc của bạn
-const RAW_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQoMahebG0_l7x6Xgrm3S6HH-gqfdY_jjGo2i6JRg0sXhjJSl6Qzr5yUusFH7C4KMYfz3nb6uD99qaY/pub?output=csv";
-// Sử dụng proxy corsproxy.io để vượt qua lỗi bảo mật của trình duyệt
-const CSV_URL = "https://corsproxy.io/?" + encodeURIComponent(RAW_URL);
-
+// Tải trực tiếp từ Google Sheets (Bỏ qua Proxy trung gian để tránh lỗi sập server)
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQoMahebG0_l7x6Xgrm3S6HH-gqfdY_jjGo2i6JRg0sXhjJSl6Qzr5yUusFH7C4KMYfz3nb6uD99qaY/pub?output=csv";
 const TARGET_KPI = 1000000000; // Giả định KPI 1 Tỷ
 
 let AppData = {
