@@ -107,7 +107,7 @@ table.data tr:last-child td { border-bottom: none; }
 <div id="loadingOverlay">
   <div class="spinner"></div>
   <h2 style="font-family:'Playfair Display', serif;">Đang đồng bộ dữ liệu...</h2>
-  <p style="font-size:14px; margin-top:8px;">Hệ thống đang kết nối Google Sheets</p>
+  <p style="font-size:14px; margin-top:8px;" id="loadingStatus">Đang cố gắng kết nối an toàn đến Google Sheets...</p>
   <div id="errorContainer" style="display:none;"></div>
 </div>
 
@@ -277,19 +277,22 @@ table.data tr:last-child td { border-bottom: none; }
 /* =========================================
    1. CẤU HÌNH & DATA MODEL
    ========================================= */
-// URL Gốc của Google Sheets
 const RAW_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQoMahebG0_l7x6Xgrm3S6HH-gqfdY_jjGo2i6JRg0sXhjJSl6Qzr5yUusFH7C4KMYfz3nb6uD99qaY/pub?output=csv";
 
-// Dùng proxy allorigins để fix triệt để lỗi "Failed to fetch" (CORS) trên trình duyệt
-const PROXY_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent(RAW_URL);
+// Mảng các đường dẫn fallback (Dự phòng lỗi mạng/CORS)
+const URLS_TO_TRY = [
+  RAW_URL, // Thử tải trực tiếp (Tốc độ cao nhất)
+  "https://api.allorigins.win/raw?url=" + encodeURIComponent(RAW_URL), // Dự phòng 1
+  "https://corsproxy.io/?" + encodeURIComponent(RAW_URL)               // Dự phòng 2
+];
 
 const TARGET_KPI = 1000000000; // Giả định KPI 1 Tỷ
 
 let AppData = {
-  orders: new Map(), // { orderId: { date, channel, status } }
-  payments: [],      // [{ paymentId, orderId, date, amount, isDeposit, comEligible }]
-  orderDetails: [],  // [{ orderId, sku, qty, rev, status }]
-  products: new Map()// { sku: { name, category, line } }
+  orders: new Map(),
+  payments: [],      
+  orderDetails: [],  
+  products: new Map()
 };
 
 let Charts = {};
@@ -329,12 +332,15 @@ function resetFilters() {
 
 function showError(msg) {
   const errBox = document.getElementById('errorContainer');
+  const loaderIcon = document.querySelector('.spinner');
+  if (loaderIcon) loaderIcon.style.display = 'none';
+  
   errBox.style.display = 'block';
   errBox.innerHTML = `
-    <div style="background:#fff; color:red; padding: 20px; border-radius: 8px; margin-top: 20px; max-width: 500px; text-align:left;">
+    <div style="background:#fff; color:red; padding: 20px; border-radius: 8px; margin-top: 20px; max-width: 500px; text-align:left; border: 1px solid red;">
       <h3 style="margin-bottom:10px;">Lỗi xử lý dữ liệu</h3>
-      <p style="font-size:14px; margin-bottom: 10px;">Đã xảy ra lỗi khi đọc dữ liệu CSV. Chi tiết lỗi: ${msg}</p>
-      <p style="font-size:13px; color:#555;">Vui lòng đảm bảo link Google Sheets đã được Publish to Web định dạng CSV, hoặc kiểm tra xem tên cột trong Sheets có bị thay đổi không.</p>
+      <p style="font-size:14px; margin-bottom: 10px;">Đã xảy ra lỗi khi đọc dữ liệu CSV. Chi tiết lỗi: <strong>${msg}</strong></p>
+      <p style="font-size:13px; color:#555;">Vui lòng đảm bảo link Google Sheets đã được Publish to Web định dạng CSV, hoặc kiểm tra kết nối mạng của bạn.</p>
       <button class="btn-error" onclick="location.reload()">Tải lại trang</button>
     </div>
   `;
@@ -343,12 +349,40 @@ function showError(msg) {
 /* =========================================
    3. TẢI VÀ MAPPING DỮ LIỆU TỪ GOOGLE SHEETS
    ========================================= */
+async function fetchWithFallback() {
+  const statusEl = document.getElementById('loadingStatus');
+  let lastError = null;
+
+  for (let i = 0; i < URLS_TO_TRY.length; i++) {
+    try {
+      if (i > 0) statusEl.innerText = `Kết nối chính thất bại. Đang thử Kênh dự phòng ${i}...`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 giây timeout
+      
+      const res = await fetch(URLS_TO_TRY[i], { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        return await res.arrayBuffer();
+      } else {
+        lastError = new Error(`HTTP Error: ${res.status}`);
+      }
+    } catch (e) {
+      lastError = e.name === 'AbortError' ? new Error("Request Timeout (Phản hồi quá chậm)") : e;
+      console.warn(`Fetch failed for ${URLS_TO_TRY[i]}:`, e);
+    }
+  }
+  
+  throw lastError || new Error("Không thể kết nối đến dữ liệu.");
+}
+
 async function fetchAndMapData() {
   try {
-    const res = await fetch(PROXY_URL);
-    if(!res.ok) throw new Error(`Failed to fetch HTTP: ${res.status}`);
+    const dataBuffer = await fetchWithFallback();
     
-    const dataBuffer = await res.arrayBuffer();
+    document.getElementById('loadingStatus').innerText = "Đang xử lý dữ liệu báo cáo...";
+    
     const wb = XLSX.read(dataBuffer, { type: 'array' });
     const rawData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
 
