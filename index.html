@@ -6,24 +6,24 @@
 <title>Facolos — Báo Cáo Kinh Doanh</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-/* CSS CORE TỪ EXECUTIVE DASHBOARD */
+/* CSS CORE */
 :root {
-  --brand:#0E3D34; --brand-dark:#071F1A; --brand-surface:#123B2E;
-  --gold:#C8A161; --gold-bright:#E5C17C; --gold-dark:#9E7B3B;
+  --brand:#0E3D34; --brand-dark:#071F1A; 
+  --gold:#C8A161; --gold-bright:#E5C17C; 
   --gold-gradient: linear-gradient(135deg, #E5C17C 0%, #C8A161 50%, #A68144 100%);
   --paper:#F4F1EA; --paper-card:#FFFFFF; --ink:#2F3A36; --muted:#5C6B66;
   --line:#DCD5C9; --up:#0E3D34; --up-bg:#E2EDE9; --down:#9A2C2C; --down-bg:#FDF2F2; 
   --sidebar-w:264px;
 }
 * { box-sizing:border-box; margin:0; padding:0; }
-body { background:var(--paper); color:var(--ink); font-family:'Inter', sans-serif; line-height:1.55; -webkit-font-smoothing:antialiased; display: flex;}
+body { background:var(--paper); color:var(--ink); font-family:'Inter', sans-serif; line-height:1.55; display: flex;}
 h1, h2, h3 { font-family:'Playfair Display', serif; }
-.mono { font-family:'JetBrains Mono', monospace; }
+.mono { font-family: monospace; }
 
 /* LOADING OVERLAY */
 #loadingOverlay { position:fixed; inset:0; background:var(--brand); display:flex; align-items:center; justify-content:center; z-index:9999; color:var(--gold-bright); flex-direction:column; text-align: center; padding: 20px;}
@@ -103,11 +103,11 @@ table.data tr:last-child td { border-bottom: none; }
 </head>
 <body>
 
-<!-- LOADING -->
+<!-- LOADING OVERLAY -->
 <div id="loadingOverlay">
   <div class="spinner"></div>
   <h2 style="font-family:'Playfair Display', serif;">Đang đồng bộ dữ liệu...</h2>
-  <p style="font-size:14px; margin-top:8px;">Đang tải dữ liệu từ Google Sheets (Bỏ qua lỗi CORS)</p>
+  <p style="font-size:14px; margin-top:8px;">Hệ thống đang kết nối Google Sheets</p>
   <div id="errorContainer" style="display:none;"></div>
 </div>
 
@@ -277,8 +277,12 @@ table.data tr:last-child td { border-bottom: none; }
 /* =========================================
    1. CẤU HÌNH & DATA MODEL
    ========================================= */
-// Tải trực tiếp từ Google Sheets (Bỏ qua Proxy trung gian để tránh lỗi sập server)
-const CSV_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://docs.google.com/spreadsheets/d/e/2PACX-1vQoMahebG0_l7x6Xgrm3S6HH-gqfdY_jjGo2i6JRg0sXhjJSl6Qzr5yUusFH7C4KMYfz3nb6uD99qaY/pub?output=csv");
+// URL Gốc của Google Sheets
+const RAW_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQoMahebG0_l7x6Xgrm3S6HH-gqfdY_jjGo2i6JRg0sXhjJSl6Qzr5yUusFH7C4KMYfz3nb6uD99qaY/pub?output=csv";
+
+// Dùng proxy allorigins để fix triệt để lỗi "Failed to fetch" (CORS) trên trình duyệt
+const PROXY_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent(RAW_URL);
+
 const TARGET_KPI = 1000000000; // Giả định KPI 1 Tỷ
 
 let AppData = {
@@ -305,7 +309,6 @@ const cleanStr = (s) => String(s || '').trim();
 const toNum = (v) => {
   if(!v) return 0;
   if(typeof v === 'number') return v;
-  // Bỏ phẩy, khoảng trắng, ký tự đ...
   const parsed = parseFloat(String(v).replace(/,/g, '').replace(/\s/g, '').replace(/đ/gi, ''));
   return isNaN(parsed) ? 0 : parsed;
 };
@@ -330,7 +333,8 @@ function showError(msg) {
   errBox.innerHTML = `
     <div style="background:#fff; color:red; padding: 20px; border-radius: 8px; margin-top: 20px; max-width: 500px; text-align:left;">
       <h3 style="margin-bottom:10px;">Lỗi xử lý dữ liệu</h3>
-      <p style="font-size:14px;">${msg}</p>
+      <p style="font-size:14px; margin-bottom: 10px;">Đã xảy ra lỗi khi đọc dữ liệu CSV. Chi tiết lỗi: ${msg}</p>
+      <p style="font-size:13px; color:#555;">Vui lòng đảm bảo link Google Sheets đã được Publish to Web định dạng CSV, hoặc kiểm tra xem tên cột trong Sheets có bị thay đổi không.</p>
       <button class="btn-error" onclick="location.reload()">Tải lại trang</button>
     </div>
   `;
@@ -341,8 +345,8 @@ function showError(msg) {
    ========================================= */
 async function fetchAndMapData() {
   try {
-    const res = await fetch(CSV_URL);
-    if(!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+    const res = await fetch(PROXY_URL);
+    if(!res.ok) throw new Error(`Failed to fetch HTTP: ${res.status}`);
     
     const dataBuffer = await res.arrayBuffer();
     const wb = XLSX.read(dataBuffer, { type: 'array' });
@@ -350,11 +354,9 @@ async function fetchAndMapData() {
 
     if(rawData.length === 0) throw new Error("File CSV trống hoặc định dạng không đúng.");
 
-    // Các set để đổ dropdown
     let months = new Set(), channels = new Set(), categories = new Set();
 
     rawData.forEach((row, i) => {
-      // Bóc tách cột dữ liệu (Kiểm tra nhiều tên cột có thể có trong file của bạn)
       let oId = cleanStr(row['Mã Đơn'] || row['Order ID'] || row['OrderID'] || row['Mã đơn hàng'] || `ORD_MISSING_${i}`);
       let date = cleanStr(row['Ngày'] || row['Ngày Đơn'] || row['Date'] || row['Order Date'] || '');
       let channel = cleanStr(row['Kênh'] || row['Kênh Bán'] || row['Channel'] || 'Khác');
@@ -371,16 +373,12 @@ async function fetchAndMapData() {
       let payment = toNum(row['Dòng tiền'] || row['Tiền Thanh Toán'] || row['Thực thu'] || row['Payment']);
       let isDeposit = cleanStr(row['Loại thanh toán'] || row['Ghi chú']).toLowerCase().includes('cọc');
       
-      // Bỏ qua đơn Hủy khi tính COM và Doanh thu
       let isCancelled = status.toLowerCase().includes('hủy') || status.toLowerCase().includes('cancel');
 
-      // Tạo tháng (YYYY-MM) để filter
       let monthKey = '';
       if(date.length >= 5) {
-        // Hỗ trợ cả 2 định dạng: 25/08/2026 hoặc 2026-08-25
         let parts = date.includes('/') ? date.split('/') : date.split('-');
         if(parts.length >= 2) {
-          // format: YYYY-MM
           monthKey = date.includes('/') ? `${parts[2]}-${parts[1].padStart(2,'0')}` : `${parts[0]}-${parts[1].padStart(2,'0')}`;
           months.add(monthKey);
         }
@@ -389,24 +387,18 @@ async function fetchAndMapData() {
       if(channel) channels.add(channel);
       if(cat) categories.add(cat);
 
-      // --- Map vào Data Model ---
-      
-      // 1. Order Master
       if (!AppData.orders.has(oId)) {
         AppData.orders.set(oId, { date: monthKey || date, channel, status });
       }
 
-      // 2. Product Master
       if (!AppData.products.has(sku)) {
         AppData.products.set(sku, { name: pName, category: cat, line: line });
       }
 
-      // 3. Order Details (Doanh thu: tính theo SP, cần có Qty > 0 hoặc Rev > 0)
       if ((qty > 0 || rev > 0) && !isCancelled) {
         AppData.orderDetails.push({ orderId: oId, sku, qty, rev, status });
       }
 
-      // 4. Payments (Dòng tiền: tính theo lần thanh toán)
       if (payment > 0) {
         AppData.payments.push({
           paymentId: `${oId}_P${i}`, orderId: oId, date: monthKey || date,
@@ -415,19 +407,16 @@ async function fetchAndMapData() {
       }
     });
 
-    // Sắp xếp và đưa vào dropdown
     populateSelect('filterMonth', Array.from(months).sort().reverse());
     populateSelect('filterChannel', Array.from(channels).sort());
     populateSelect('filterCategory', Array.from(categories).sort());
 
     document.getElementById('loadingOverlay').style.display = 'none';
-    
-    // Gọi hàm vẽ biểu đồ
     renderDashboard();
 
   } catch (err) {
     console.error(err);
-    showError("Đã xảy ra lỗi khi đọc dữ liệu CSV. Chi tiết lỗi: " + err.message + "<br><br>Vui lòng đảm bảo link Google Sheets đã được Publish to Web định dạng CSV, hoặc kiểm tra xem tên cột trong Sheets có bị thay đổi không.");
+    showError(err.message);
   }
 }
 
@@ -438,14 +427,13 @@ function populateSelect(id, arr) {
 }
 
 /* =========================================
-   5. RENDER DASHBOARD (TÍNH TOÁN CORE LOGIC)
+   4. RENDER DASHBOARD (TÍNH TOÁN CORE LOGIC)
    ========================================= */
 function renderDashboard() {
   const fMonth = document.getElementById('filterMonth').value;
   const fChan = document.getElementById('filterChannel').value;
   const fCat = document.getElementById('filterCategory').value;
 
-  // 1. Lấy danh sách Đơn Hàng lọt qua Bộ lọc (Tháng & Kênh)
   const validOrderIds = new Set();
   AppData.orders.forEach((info, oId) => {
     let passMonth = (fMonth === 'ALL' || info.date === fMonth);
@@ -453,20 +441,15 @@ function renderDashboard() {
     if (passMonth && passChan) validOrderIds.add(oId);
   });
 
-
-  /* ---------------------------------------------------------
-     TAB 1: TÍNH DOANH SỐ COM (Bảng Payments)
-  --------------------------------------------------------- */
-  // Chỉ lấy payments của những Order hợp lệ và đủ điều kiện COM
+  /* --- TAB 1: TÍNH DOANH SỐ COM --- */
   let comPayments = AppData.payments.filter(p => validOrderIds.has(p.orderId) && p.comEligible);
-  
   let comTotal = 0, depositTotal = 0;
   let comByChan = {}, comTrend = {};
   let comOrderSet = new Set();
 
   comPayments.forEach(p => {
     comTotal += p.amount;
-    comOrderSet.add(p.orderId); // Set tự loại bỏ trùng lặp Order ID
+    comOrderSet.add(p.orderId);
     if(p.isDeposit) depositTotal += p.amount;
 
     let chan = AppData.orders.get(p.orderId).channel;
@@ -479,7 +462,6 @@ function renderDashboard() {
   let comOrdersCount = comOrderSet.size;
   let aov = comOrdersCount > 0 ? comTotal / comOrdersCount : 0;
 
-  // In số liệu COM lên giao diện
   document.getElementById('kpiComSales').innerText = fmtMoney(comTotal);
   document.getElementById('kpiComOrders').innerText = fmtNum(comOrdersCount);
   document.getElementById('kpiComAov').innerText = fmtMoney(aov);
@@ -490,7 +472,6 @@ function renderDashboard() {
   document.getElementById('kpiComPct').innerText = pct.toFixed(1) + '%';
   document.getElementById('kpiComTarget').innerText = fmtMoney(target);
 
-  // In bảng Kênh bán COM
   let tCh = document.getElementById('comChannelTable');
   tCh.innerHTML = '';
   Object.entries(comByChan).sort((a,b)=>b[1]-a[1]).forEach(([c, val]) => {
@@ -498,14 +479,9 @@ function renderDashboard() {
     tCh.insertAdjacentHTML('beforeend', `<tr><td>${c}</td><td class="num mono">${fmtNum(sl)}</td><td class="num mono" style="font-weight:600; color:var(--brand)">${fmtMoney(val)}</td></tr>`);
   });
 
-  // Vẽ biểu đồ Trend COM
   renderChart('comTrendChart', 'line', Object.keys(comTrend).sort(), Object.keys(comTrend).sort().map(k=>comTrend[k]), 'Doanh số COM', '#0E3D34', '#E5C17C');
 
-
-  /* ---------------------------------------------------------
-     TAB 2: TÍNH DOANH THU & SẢN LƯỢNG (Bảng OrderDetails)
-  --------------------------------------------------------- */
-  // Lọc chi tiết đơn hàng: Cần khớp Order ID hợp lệ VÀ khớp bộ lọc Ngành hàng (Category)
+  /* --- TAB 2: TÍNH DOANH THU & SẢN LƯỢNG --- */
   let revDetails = AppData.orderDetails.filter(d => {
     if(!validOrderIds.has(d.orderId)) return false;
     let cat = AppData.products.get(d.sku).category;
@@ -524,20 +500,18 @@ function renderDashboard() {
 
     let pInfo = AppData.products.get(d.sku);
     revByCat[pInfo.category] = (revByCat[pInfo.category] || 0) + d.rev;
-    revByLine[pInfo.line] = (revByLine[pInfo.line] || 0) + d.qty; // Biểu đồ Line đang yêu cầu xem theo Số lượng
+    revByLine[pInfo.line] = (revByLine[pInfo.line] || 0) + d.qty; 
 
     if(!skuStats[d.sku]) skuStats[d.sku] = { qty:0, rev:0, pInfo };
     skuStats[d.sku].qty += d.qty;
     skuStats[d.sku].rev += d.rev;
   });
 
-  // In số liệu Doanh thu lên giao diện
   document.getElementById('kpiRevTotal').innerText = fmtMoney(revTotal);
   document.getElementById('kpiRevQty').innerText = fmtNum(qtyTotal);
   document.getElementById('kpiRevSkus').innerText = fmtNum(skuSet.size);
   document.getElementById('kpiRevAvg').innerText = skuSet.size > 0 ? fmtMoney(revTotal / skuSet.size) : '0 đ';
 
-  // In bảng Top 15 Sản phẩm
   let tSku = document.getElementById('revTopTable');
   tSku.innerHTML = '';
   let sortedSkus = Object.entries(skuStats).sort((a,b)=>b[1].rev - a[1].rev).slice(0, 15);
@@ -549,14 +523,10 @@ function renderDashboard() {
     </tr>`);
   });
 
-  // Vẽ biểu đồ Doanh thu (Bar)
   renderChart('revCategoryChart', 'bar', Object.keys(revByCat), Object.values(revByCat), 'Doanh thu theo Ngành', '#C8A161');
   renderChart('revLineChart', 'bar', Object.keys(revByLine), Object.values(revByLine), 'Sản lượng theo Line', '#4A7265');
 
-
-  /* ---------------------------------------------------------
-     TAB 3: ĐỐI CHIẾU DOANH SỐ COM & DOANH THU
-  --------------------------------------------------------- */
+  /* --- TAB 3: ĐỐI CHIẾU --- */
   document.getElementById('rcCom').innerText = fmtMoney(comTotal);
   document.getElementById('rcRev').innerText = fmtMoney(revTotal);
   
@@ -565,14 +535,12 @@ function renderDashboard() {
   elDiff.innerText = fmtMoney(diff);
   elDiff.style.color = diff < 0 ? 'var(--down)' : 'var(--brand)';
 
-  // Ước tính Tiền chưa thu: Doanh thu trừ đi tổng COM, sau đó cộng lại tiền cọc (vì cọc chưa ghi nhận doanh thu nhưng đã nằm trong COM)
   let unpaid = Math.max(0, revTotal - comTotal + depositTotal);
   
   document.getElementById('rcDeposit').innerText = fmtMoney(depositTotal);
   document.getElementById('rcUnpaid').innerText = fmtMoney(unpaid);
 }
 
-// Hàm vẽ biểu đồ đa năng sử dụng Chart.js
 function renderChart(canvasId, type, labels, data, labelName, bgColor = '#0E3D34', borderColor = 'transparent') {
   if (Charts[canvasId]) Charts[canvasId].destroy();
   const ctx = document.getElementById(canvasId).getContext('2d');
@@ -612,7 +580,7 @@ function renderChart(canvasId, type, labels, data, labelName, bgColor = '#0E3D34
   });
 }
 
-// Kích hoạt Data Fetching khi web vừa load
+// Khởi chạy khi web load
 window.onload = function() {
   fetchAndMapData();
 };
